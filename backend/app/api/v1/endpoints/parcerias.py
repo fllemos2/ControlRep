@@ -39,6 +39,7 @@ def resumo_parcerias(db: Session = Depends(get_db)):
 
         crias = db.query(Cria).filter(Cria.id_matriz == m.id).all()
         crias_no_pasto = sum(1 for c in crias if c.status == 'No Pasto')
+        crias_vendidas = sum(1 for c in crias if c.status == 'Vendido')
         valor_vendido = sum(float(c.valor_venda) for c in crias if c.valor_venda)
 
         grupos[nome]["matrizes"].append({
@@ -48,6 +49,7 @@ def resumo_parcerias(db: Session = Depends(get_db)):
             "status": m.status,
             "total_crias": len(crias),
             "crias_no_pasto": crias_no_pasto,
+            "crias_vendidas": crias_vendidas,
             "valor_vendido": round(valor_vendido, 2),
         })
         grupos[nome]["total_matrizes"] += 1

@@ -41,7 +41,7 @@ async function doSync(dir: 'push' | 'pull') {
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/matrizes">Matrizes</RouterLink>
         <RouterLink to="/crias">Crias</RouterLink>
-        <RouterLink to="/exames-toque">Exame de Toque</RouterLink>
+        <RouterLink to="/exames-toque">Toque</RouterLink>
         <RouterLink to="/parcerias">Parcerias</RouterLink>
       </div>
       <div v-if="cloudOk" class="sync-area">
@@ -90,7 +90,7 @@ body {
 
 .nav-brand { font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
 
-.nav-links { display: flex; gap: 4px; }
+.nav-links { display: flex; gap: 4px; flex-wrap: wrap; }
 
 .nav-links a {
   color: rgba(255,255,255,0.8);

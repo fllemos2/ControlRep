@@ -82,28 +82,28 @@ function fmt(v: number) {
           <thead>
             <tr>
               <th>Registro</th>
-              <th>Brinco</th>
-              <th>Status</th>
-              <th style="text-align:center">Qtd Crias</th>
+              <th>Status Matriz</th>
+              <th style="text-align:center">Total Crias</th>
               <th style="text-align:center">No Pasto</th>
-              <th style="text-align:right">Vendas</th>
+              <th style="text-align:center">Vendidas</th>
+              <th style="text-align:right">Valor Vendas</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="m in parceriaAtual.matrizes" :key="m.id">
-              <td>{{ m.numero_registro }}</td>
-              <td>{{ m.brinco }}</td>
+              <td><strong>{{ m.numero_registro }}</strong></td>
               <td>
-                <span
-                  class="badge"
-                  :class="m.status === 'ativa' ? 'badge-green' : 'badge-gray'"
-                >{{ m.status }}</span>
-              </td>
-              <td style="text-align:center">{{ m.total_crias }}</td>
-              <td style="text-align:center">
-                <span v-if="m.crias_no_pasto > 0" class="badge badge-green">
-                  {{ m.crias_no_pasto }}
+                <span class="badge" :class="m.status === 'ativa' ? 'badge-green' : 'badge-gray'">
+                  {{ m.status }}
                 </span>
+              </td>
+              <td style="text-align:center"><strong>{{ m.total_crias }}</strong></td>
+              <td style="text-align:center">
+                <span v-if="m.crias_no_pasto > 0" class="badge badge-green">{{ m.crias_no_pasto }}</span>
+                <span v-else class="sem">—</span>
+              </td>
+              <td style="text-align:center">
+                <span v-if="(m as any).crias_vendidas > 0" class="badge badge-blue">{{ (m as any).crias_vendidas }}</span>
                 <span v-else class="sem">—</span>
               </td>
               <td style="text-align:right">
