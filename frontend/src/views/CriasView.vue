@@ -53,12 +53,19 @@ onMounted(async () => {
   }
 })
 
+function sortByNumReg(a: Cria, b: Cria) {
+  const na = parseInt(a.numero_registro ?? '')
+  const nb = parseInt(b.numero_registro ?? '')
+  if (!isNaN(na) && !isNaN(nb)) return na - nb
+  return (a.numero_registro ?? '').localeCompare(b.numero_registro ?? '', 'pt-BR', { numeric: true })
+}
+
 const lista = computed(() => {
   let items = all.value
   if (filtroStatus.value)  items = items.filter(c => c.status === filtroStatus.value)
   if (filtroSexo.value)    items = items.filter(c => c.sexo === filtroSexo.value)
   if (filtroMatriz.value)  items = items.filter(c => c.id_matriz === Number(filtroMatriz.value))
-  return items
+  return [...items].sort(sortByNumReg)
 })
 
 // Nº de ordem: sequencial só para "No Pasto" dentro da listagem atual
