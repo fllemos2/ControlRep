@@ -47,11 +47,11 @@ const matrizesFiltradas = computed<MatrizComParceria[]>(() =>
 const kpis = computed(() => {
   const mats = matrizesFiltradas.value
   return {
-    matrizes:   mats.length,
+    matrizes:    mats.length,
     total_crias: mats.reduce((s, m) => s + m.total_crias, 0),
-    no_pasto:   mats.reduce((s, m) => s + m.crias_no_pasto, 0),
-    vendidas:   mats.reduce((s, m) => s + m.crias_vendidas, 0),
-    valor:      mats.reduce((s, m) => s + m.valor_vendido, 0),
+    no_pasto:    mats.reduce((s, m) => s + m.crias_no_pasto, 0),
+    vendidas:    mats.reduce((s, m) => s + m.crias_vendidas, 0),
+    valor:       mats.reduce((s, m) => s + m.valor_vendido, 0),
   }
 })
 
@@ -88,36 +88,37 @@ function fmt(v: number) {
           <span class="parceiro-badge">{{ p.total_matrizes }}</span>
         </li>
       </ul>
+
+      <!-- Resumo vertical abaixo da lista -->
+      <div class="sidebar-resumo">
+        <div class="sidebar-title">Resumo</div>
+        <div class="resumo-item">
+          <span class="resumo-label">Matrizes</span>
+          <span class="resumo-valor">{{ kpis.matrizes }}</span>
+        </div>
+        <div class="resumo-item">
+          <span class="resumo-label">Crias Totais</span>
+          <span class="resumo-valor">{{ kpis.total_crias }}</span>
+        </div>
+        <div class="resumo-item resumo-destaque">
+          <span class="resumo-label">No Pasto</span>
+          <span class="resumo-valor">{{ kpis.no_pasto }}</span>
+        </div>
+        <div class="resumo-item">
+          <span class="resumo-label">Vendidas</span>
+          <span class="resumo-valor">{{ kpis.vendidas }}</span>
+        </div>
+        <div class="resumo-item resumo-verde">
+          <span class="resumo-label">Total Vendas</span>
+          <span class="resumo-valor resumo-moeda">{{ fmt(kpis.valor) }}</span>
+        </div>
+      </div>
     </aside>
 
     <!-- Conteúdo principal -->
     <section class="parceiro-detalhe">
       <div class="page-header">
         <h1>{{ selecionada || 'Todas as Matrizes' }}</h1>
-      </div>
-
-      <!-- KPIs -->
-      <div class="kpis-row">
-        <div class="kpi-card">
-          <span class="kpi-valor">{{ kpis.matrizes }}</span>
-          <span class="kpi-label">Matrizes</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-valor">{{ kpis.total_crias }}</span>
-          <span class="kpi-label">Crias Totais</span>
-        </div>
-        <div class="kpi-card kpi-destaque">
-          <span class="kpi-valor">{{ kpis.no_pasto }}</span>
-          <span class="kpi-label">No Pasto</span>
-        </div>
-        <div class="kpi-card">
-          <span class="kpi-valor">{{ kpis.vendidas }}</span>
-          <span class="kpi-label">Vendidas</span>
-        </div>
-        <div class="kpi-card kpi-verde">
-          <span class="kpi-valor">{{ fmt(kpis.valor) }}</span>
-          <span class="kpi-label">Total Vendas</span>
-        </div>
       </div>
 
       <!-- Tabela de matrizes -->
@@ -170,7 +171,7 @@ function fmt(v: number) {
 
 /* Sidebar */
 .parceiros-sidebar {
-  width: 180px; flex-shrink: 0;
+  width: 210px; flex-shrink: 0;
   background: white; border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   overflow: hidden; position: sticky; top: 20px;
@@ -197,22 +198,21 @@ function fmt(v: number) {
 }
 .parceiro-item.ativo .parceiro-badge { background: #c8e6c9; color: #2c5f2e; }
 
+/* Resumo na sidebar */
+.sidebar-resumo { border-top: 1px solid #f0f0f0; }
+.resumo-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 16px; border-left: 3px solid transparent;
+  border-bottom: 1px solid #f8f8f8;
+}
+.resumo-destaque { border-left-color: #1565c0; }
+.resumo-verde    { border-left-color: #2c5f2e; }
+.resumo-label { font-size: 0.72rem; color: #999; text-transform: uppercase; letter-spacing: 0.04em; }
+.resumo-valor { font-size: 1.1rem; font-weight: 700; color: #2c3e50; }
+.resumo-moeda { font-size: 0.9rem; font-weight: 700; color: #2c5f2e; }
+
 /* Detalhe */
 .parceiro-detalhe { flex: 1; min-width: 0; }
-
-/* KPIs */
-.kpis-row {
-  display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
-}
-.kpi-card {
-  background: white; border-radius: 10px; padding: 18px 22px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 120px;
-}
-.kpi-destaque { border-top: 3px solid #1565c0; }
-.kpi-verde    { border-top: 3px solid #2c5f2e; }
-.kpi-valor { font-size: 1.5rem; font-weight: 700; color: #2c3e50; line-height: 1; }
-.kpi-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
 
 .text-muted { color: #aaa; }
 </style>
