@@ -86,10 +86,17 @@ function formatDate(d: string | null) {
 
 // --- Modal helpers ---
 
+function nextNumeroRegistro(): string {
+  const nums = all.value
+    .map(c => parseInt(c.numero_registro ?? ''))
+    .filter(n => !isNaN(n) && n > 0)
+  return nums.length > 0 ? String(Math.max(...nums) + 1) : ''
+}
+
 function abrirCriar() {
   modalModo.value = 'criar'
   erroModal.value = ''
-  form.value = { id: 0, id_matriz: allMatrizes.value[0]?.id ?? 0, numero_registro: '', raca_pelagem: '', sexo: '', data_nascimento: '', pai: '', status: 'No Pasto' }
+  form.value = { id: 0, id_matriz: 0, numero_registro: nextNumeroRegistro(), raca_pelagem: '', sexo: '', data_nascimento: '', pai: '', status: 'No Pasto' }
   modalAberto.value = true
 }
 
@@ -242,6 +249,7 @@ async function salvar() {
               <div class="form-group">
                 <label>Matriz <span class="req">*</span></label>
                 <select v-model="form.id_matriz">
+                  <option :value="0" disabled>— selecione —</option>
                   <option v-for="m in allMatrizes" :key="m.id" :value="m.id">{{ m.numero_registro }}</option>
                 </select>
               </div>

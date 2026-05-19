@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python scripts/migrate_to_prod.py https://web-production-afb90.up.railway.app)"
+    ]
+  }
+}

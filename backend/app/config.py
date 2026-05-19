@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # API
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Cattle Control"
-    PROJECT_VERSION: str = "0.1.0"
+    PROJECT_VERSION: str = "1.01"
 
     # CORS (usado apenas em desenvolvimento)
     CORS_ORIGINS: list = [

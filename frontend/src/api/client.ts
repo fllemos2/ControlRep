@@ -161,4 +161,13 @@ export const parcerias = {
   resumo: () => api.get<ParceriaResumo[]>('/parcerias/resumo'),
 }
 
+export interface DashboardStats {
+  matrizes: { ativas: number; cheias: number; vazias: number; paridas: number }
+  crias: { no_pasto: number; idade_media_meses: number; machos: number; femeas: number }
+}
+
+export const dashboard = {
+  stats: () => api.get<DashboardStats>('/dashboard/'),
+}
+
 export default api
