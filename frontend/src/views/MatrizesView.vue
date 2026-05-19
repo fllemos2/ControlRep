@@ -323,9 +323,18 @@ async function salvarMatriz() {
         </button>
       </div>
       <div class="legenda">
-        <span class="dot green"></span> &lt; 13 meses
-        <span class="dot yellow"></span> 13 – 15 meses
-        <span class="dot red"></span> &gt; 15 meses
+        <span class="legenda-grupo">
+          <span class="dot green"></span> &lt; 13 meses
+          <span class="dot yellow"></span> 13 – 15 meses
+          <span class="dot red"></span> &gt; 15 meses
+        </span>
+        <span class="legenda-sep">|</span>
+        <span class="legenda-grupo">
+          <span class="ic">☑️</span> Cheia (gestante)
+          <span class="ic">✅</span> Parida após toque
+          <span class="ic">❌</span> Vazia &gt; 9 meses
+          <span class="ic">❎</span> Vazia ≤ 9 meses
+        </span>
       </div>
     </div>
 
@@ -587,7 +596,11 @@ async function salvarMatriz() {
   background: #f8f9fa;
   padding: 8px 14px;
   border-radius: 8px;
+  flex-wrap: wrap;
 }
+.legenda-grupo { display: flex; align-items: center; gap: 8px; }
+.legenda-sep { color: #ccc; font-size: 1rem; }
+.ic { font-size: 1rem; line-height: 1; }
 
 /* Farol dot */
 .dot {
