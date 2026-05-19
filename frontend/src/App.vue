@@ -42,6 +42,7 @@ async function doSync(dir: 'push' | 'pull') {
         <RouterLink to="/matrizes">Matrizes</RouterLink>
         <RouterLink to="/crias">Crias</RouterLink>
         <RouterLink to="/exames-toque">Exame de Toque</RouterLink>
+        <RouterLink to="/parcerias">Parcerias</RouterLink>
       </div>
       <div v-if="cloudOk" class="sync-area">
         <span v-if="syncMsg" class="sync-msg" :class="syncMsg.startsWith('Erro') ? 'sync-err' : 'sync-ok'">

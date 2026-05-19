@@ -138,4 +138,27 @@ export const sync = {
   pull:   () => api.post<{ status: string; pulled_bytes: number }>('/sync/pull'),
 }
 
+export interface MatrizResumo {
+  id: number
+  numero_registro: string
+  brinco: string
+  status: string
+  total_crias: number
+  crias_no_pasto: number
+  valor_vendido: number
+}
+
+export interface ParceriaResumo {
+  nome: string
+  matrizes: MatrizResumo[]
+  total_matrizes: number
+  total_crias: number
+  total_crias_no_pasto: number
+  total_valor_vendido: number
+}
+
+export const parcerias = {
+  resumo: () => api.get<ParceriaResumo[]>('/parcerias/resumo'),
+}
+
 export default api
