@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { examesToque, toquesMatrizes, matrizes, type ExameToque, type ToqueMatriz, type Matriz } from '@/api/client'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { examesToque, toquesMatrizes, matrizes, chat, type ExameToque, type ToqueMatriz, type Matriz, type ChatMessage, type ChatAction } from '@/api/client'
 
 const GESTACAO = 285
 
@@ -180,6 +180,72 @@ async function excluir() {
     exameAtual.value  = listaExames.value[0] ?? null
   } catch { alert('Erro ao excluir.') }
 }
+
+// ── IA / Chat ─────────────────────────────────────────────────────────────────
+
+const chatScrollEl = ref<HTMLElement | null>(null)
+const chatInput    = ref('')
+const chatLoading  = ref(false)
+const chatHistory  = ref<ChatMessage[]>([])
+const chatActions  = ref<ChatAction[]>([])
+const executando   = ref(false)
+const execResults  = ref<string[]>([])
+
+async function enviarMensagem() {
+  const texto = chatInput.value.trim()
+  if (!texto || chatLoading.value) return
+
+  chatInput.value = ''
+  chatActions.value = []
+  execResults.value = []
+  chatHistory.value.push({ role: 'user', content: texto })
+  chatLoading.value = true
+  await scrollChat()
+
+  try {
+    const res = await chat.send(texto, chatHistory.value.slice(0, -1))
+    chatHistory.value.push({ role: 'assistant', content: res.data.message })
+    chatActions.value = res.data.actions ?? []
+  } catch {
+    chatHistory.value.push({ role: 'assistant', content: 'Erro ao conectar com a IA. Verifique a chave ANTHROPIC_API_KEY nas configurações.' })
+  } finally {
+    chatLoading.value = false
+    await scrollChat()
+  }
+}
+
+async function confirmarAcoes() {
+  if (!chatActions.value.length) return
+  executando.value = true
+  try {
+    const res = await chat.execute(chatActions.value)
+    execResults.value = res.data.results
+    chatActions.value = []
+    chatHistory.value.push({ role: 'assistant', content: 'Registros salvos com sucesso.' })
+    // recarrega dados
+    const [eRes, mRes] = await Promise.all([examesToque.list(), matrizes.list({ limit: 500 })])
+    listaExames.value = eRes.data
+    allMatrizes.value = mRes.data
+  } catch {
+    execResults.value = ['Erro ao executar as ações.']
+  } finally {
+    executando.value = false
+    await scrollChat()
+  }
+}
+
+function cancelarAcoes() {
+  chatActions.value = []
+}
+
+async function scrollChat() {
+  await nextTick()
+  if (chatScrollEl.value) chatScrollEl.value.scrollTop = chatScrollEl.value.scrollHeight
+}
+
+function onEnter(e: KeyboardEvent) {
+  if (!e.shiftKey) { e.preventDefault(); enviarMensagem() }
+}
 </script>
 
 <template>
@@ -193,130 +259,208 @@ async function excluir() {
     <div v-if="loading" class="loading">Carregando...</div>
 
     <template v-else>
-      <!-- Seletor de exame -->
-      <div class="exame-selector card" v-if="listaExames.length">
-        <div class="exame-selector-row">
-          <div class="selector-label">Exame de Toque:</div>
-          <select v-model="exameAtual" class="exame-select">
-            <option v-for="e in listaExames" :key="e.id" :value="e">
-              {{ new Date(e.data_realizacao + 'T00:00:00').toLocaleDateString('pt-BR') }}
-              {{ e.veterinario ? '— ' + e.veterinario : '' }}
-            </option>
-          </select>
-          <div class="exame-acoes">
-            <button class="btn-edit-sm" @click="abrirEditar" title="Editar">✎</button>
-            <button class="btn-del-sm"  @click="excluir"     title="Excluir">✕</button>
+      <div class="dois-col">
+
+        <!-- ── Coluna esquerda: dados ── -->
+        <div class="col-dados">
+
+          <!-- Seletor de exame -->
+          <div class="exame-selector card" v-if="listaExames.length">
+            <div class="exame-selector-row">
+              <div class="selector-label">Exame de Toque:</div>
+              <select v-model="exameAtual" class="exame-select">
+                <option v-for="e in listaExames" :key="e.id" :value="e">
+                  {{ new Date(e.data_realizacao + 'T00:00:00').toLocaleDateString('pt-BR') }}
+                  {{ e.veterinario ? '— ' + e.veterinario : '' }}
+                </option>
+              </select>
+              <div class="exame-acoes">
+                <button class="btn-edit-sm" @click="abrirEditar" title="Editar">✎</button>
+                <button class="btn-del-sm"  @click="excluir"     title="Excluir">✕</button>
+              </div>
+            </div>
+
+            <div v-if="exameAtual" class="exame-detalhes">
+              <span class="det-item"><span class="det-label">Período</span>
+                {{ formatDate(exameAtual.periodo_inicio) }} – {{ formatDate(exameAtual.periodo_fim) }}
+              </span>
+              <span class="det-item"><span class="det-label">Realização</span>
+                <strong>{{ formatDate(exameAtual.data_realizacao) }}</strong>
+              </span>
+              <span class="det-item" v-if="exameAtual.veterinario">
+                <span class="det-label">Veterinário</span> {{ exameAtual.veterinario }}
+              </span>
+            </div>
+          </div>
+
+          <div v-else class="card vazio-msg">Nenhum exame cadastrado. Clique em "+ Novo Exame".</div>
+
+          <!-- Resumo quantitativo -->
+          <div v-if="exameAtual" class="card resumo-card">
+            <h3 class="resumo-titulo">Resumo do Exame</h3>
+
+            <table class="resumo-table">
+              <thead>
+                <tr>
+                  <th>Situação</th>
+                  <th class="col-n">Qtd</th>
+                  <th class="col-pct">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="resumo-row clickable"
+                    :class="{ ativo: expandido === 'cheia' }"
+                    @click="toggleExpandido('cheia')">
+                  <td><span class="ic">☑️</span> Cheias — parto previsto</td>
+                  <td class="col-n"><strong>{{ cheias.length }}</strong></td>
+                  <td class="col-pct text-muted">{{ ativas.length ? Math.round(cheias.length / ativas.length * 100) : 0 }}%</td>
+                </tr>
+                <tr v-if="expandido === 'cheia'" class="detalhe-row">
+                  <td colspan="3">
+                    <table class="detalhe-table">
+                      <thead><tr><th class="col-semaforo"></th><th>Matriz</th><th>Dias fec.</th><th>Previsão de parto (± 30 dias)</th></tr></thead>
+                      <tbody>
+                        <tr v-for="m in cheias" :key="m.id">
+                          <td class="col-semaforo">
+                            <span class="semaforo-dot" :class="corParto(m)"></span>
+                          </td>
+                          <td><strong>{{ m.numero_registro }}</strong></td>
+                          <td class="text-muted">{{ toqueMap[m.id]?.dias_estimados_fecundacao ?? '—' }} dias</td>
+                          <td>{{ previstoParto(m) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr class="resumo-row clickable"
+                    :class="{ ativo: expandido === 'parida' }"
+                    @click="toggleExpandido('parida')">
+                  <td><span class="ic">✅</span> Paridas após o toque</td>
+                  <td class="col-n"><strong>{{ paridas.length }}</strong></td>
+                  <td class="col-pct text-muted">{{ ativas.length ? Math.round(paridas.length / ativas.length * 100) : 0 }}%</td>
+                </tr>
+                <tr v-if="expandido === 'parida'" class="detalhe-row">
+                  <td colspan="3">
+                    <table class="detalhe-table">
+                      <thead><tr><th>Matriz</th><th>Data do parto</th></tr></thead>
+                      <tbody>
+                        <tr v-for="m in paridas" :key="m.id">
+                          <td><strong>{{ m.numero_registro }}</strong></td>
+                          <td>{{ formatDate(m.ultima_cria_data) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr class="resumo-row clickable"
+                    :class="{ ativo: expandido === 'vazia' }"
+                    @click="toggleExpandido('vazia')">
+                  <td><span class="ic">❌❎</span> Vazias</td>
+                  <td class="col-n"><strong>{{ vazias.length }}</strong></td>
+                  <td class="col-pct text-muted">{{ ativas.length ? Math.round(vazias.length / ativas.length * 100) : 0 }}%</td>
+                </tr>
+                <tr v-if="expandido === 'vazia'" class="detalhe-row">
+                  <td colspan="3">
+                    <table class="detalhe-table">
+                      <thead><tr><th>Matriz</th><th>Resultado toque</th><th>Último parto</th></tr></thead>
+                      <tbody>
+                        <tr v-for="m in vazias" :key="m.id">
+                          <td><strong>{{ m.numero_registro }}</strong></td>
+                          <td class="text-muted">{{ toqueMap[m.id]?.resultado ?? 'Sem registro' }}</td>
+                          <td>{{ formatDate(m.ultima_cria_data) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr class="resumo-total">
+                  <td>Total de matrizes ativas</td>
+                  <td class="col-n"><strong>{{ ativas.length }}</strong></td>
+                  <td class="col-pct text-muted">100%</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div v-if="exameAtual" class="exame-detalhes">
-          <span class="det-item"><span class="det-label">Período</span>
-            {{ formatDate(exameAtual.periodo_inicio) }} – {{ formatDate(exameAtual.periodo_fim) }}
-          </span>
-          <span class="det-item"><span class="det-label">Realização</span>
-            <strong>{{ formatDate(exameAtual.data_realizacao) }}</strong>
-          </span>
-          <span class="det-item" v-if="exameAtual.veterinario">
-            <span class="det-label">Veterinário</span> {{ exameAtual.veterinario }}
-          </span>
+        <!-- ── Coluna direita: Assistente IA ── -->
+        <div class="col-ia">
+          <div class="ia-card card">
+            <div class="ia-header">
+              <span class="ia-icon">🤖</span>
+              <div>
+                <div class="ia-titulo">Assistente</div>
+                <div class="ia-subtitulo">Escreva sobre o rebanho em linguagem natural</div>
+              </div>
+            </div>
+
+            <!-- Histórico de mensagens -->
+            <div class="ia-chat" ref="chatScrollEl">
+              <div v-if="chatHistory.length === 0" class="ia-placeholder">
+                <p>Olá! Posso ajudá-lo a registrar dados e analisar o rebanho.</p>
+                <p>Exemplos:</p>
+                <ul>
+                  <li>"A matriz 1045 pariu ontem, foi macho"</li>
+                  <li>"Quais matrizes cheias estão perto do parto?"</li>
+                  <li>"Registrar toque: matriz 980 cheia, 60 dias"</li>
+                </ul>
+              </div>
+
+              <div v-for="(msg, i) in chatHistory" :key="i"
+                   class="ia-msg" :class="msg.role === 'user' ? 'ia-msg-user' : 'ia-msg-bot'">
+                <div class="ia-msg-bubble">{{ msg.content }}</div>
+              </div>
+
+              <div v-if="chatLoading" class="ia-msg ia-msg-bot">
+                <div class="ia-msg-bubble ia-digitando">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ações sugeridas -->
+            <div v-if="chatActions.length" class="ia-acoes">
+              <div class="ia-acoes-titulo">Confirmar ações:</div>
+              <div v-for="(a, i) in chatActions" :key="i" class="ia-acao-item">
+                {{ a.label }}
+              </div>
+              <div class="ia-acoes-btns">
+                <button class="btn btn-ghost btn-sm" @click="cancelarAcoes" :disabled="executando">Cancelar</button>
+                <button class="btn btn-primary btn-sm" @click="confirmarAcoes" :disabled="executando">
+                  {{ executando ? 'Salvando…' : 'Confirmar e Salvar' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Resultados da execução -->
+            <div v-if="execResults.length" class="ia-exec-results">
+              <div v-for="(r, i) in execResults" :key="i" class="ia-exec-item"
+                   :class="r.startsWith('ERRO') ? 'ia-exec-err' : 'ia-exec-ok'">
+                {{ r }}
+              </div>
+            </div>
+
+            <!-- Input -->
+            <div class="ia-input-area">
+              <textarea
+                v-model="chatInput"
+                class="ia-textarea"
+                placeholder="Escreva aqui… (Enter para enviar)"
+                rows="3"
+                @keydown.enter="onEnter"
+                :disabled="chatLoading"
+              ></textarea>
+              <button class="ia-send-btn" @click="enviarMensagem" :disabled="chatLoading || !chatInput.trim()">
+                Enviar
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div v-else class="card vazio-msg">Nenhum exame cadastrado. Clique em "+ Novo Exame".</div>
-
-      <!-- Resumo quantitativo -->
-      <div v-if="exameAtual" class="card resumo-card">
-        <h3 class="resumo-titulo">Resumo do Exame</h3>
-
-        <table class="resumo-table">
-          <thead>
-            <tr>
-              <th>Situação</th>
-              <th class="col-n">Qtd</th>
-              <th class="col-pct">%</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Cheias -->
-            <tr class="resumo-row clickable"
-                :class="{ ativo: expandido === 'cheia' }"
-                @click="toggleExpandido('cheia')">
-              <td><span class="ic">☑️</span> Cheias — parto previsto</td>
-              <td class="col-n"><strong>{{ cheias.length }}</strong></td>
-              <td class="col-pct text-muted">{{ ativas.length ? Math.round(cheias.length / ativas.length * 100) : 0 }}%</td>
-            </tr>
-            <tr v-if="expandido === 'cheia'" class="detalhe-row">
-              <td colspan="3">
-                <table class="detalhe-table">
-                  <thead><tr><th class="col-semaforo"></th><th>Matriz</th><th>Dias fec.</th><th>Previsão de parto (± 30 dias)</th></tr></thead>
-                  <tbody>
-                    <tr v-for="m in cheias" :key="m.id">
-                      <td class="col-semaforo">
-                        <span class="semaforo-dot" :class="corParto(m)" :title="corParto(m)==='green'?'Parto: ainda no prazo':corParto(m)==='yellow'?'Parto: dentro da janela (±30 dias)':corParto(m)==='red'?'Parto: prazo vencido — não pariu':''"></span>
-                      </td>
-                      <td><strong>{{ m.numero_registro }}</strong></td>
-                      <td class="text-muted">{{ toqueMap[m.id]?.dias_estimados_fecundacao ?? '—' }} dias</td>
-                      <td>{{ previstoParto(m) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <!-- Paridas -->
-            <tr class="resumo-row clickable"
-                :class="{ ativo: expandido === 'parida' }"
-                @click="toggleExpandido('parida')">
-              <td><span class="ic">✅</span> Paridas após o toque</td>
-              <td class="col-n"><strong>{{ paridas.length }}</strong></td>
-              <td class="col-pct text-muted">{{ ativas.length ? Math.round(paridas.length / ativas.length * 100) : 0 }}%</td>
-            </tr>
-            <tr v-if="expandido === 'parida'" class="detalhe-row">
-              <td colspan="3">
-                <table class="detalhe-table">
-                  <thead><tr><th>Matriz</th><th>Data do parto</th></tr></thead>
-                  <tbody>
-                    <tr v-for="m in paridas" :key="m.id">
-                      <td><strong>{{ m.numero_registro }}</strong></td>
-                      <td>{{ formatDate(m.ultima_cria_data) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <!-- Vazias -->
-            <tr class="resumo-row clickable"
-                :class="{ ativo: expandido === 'vazia' }"
-                @click="toggleExpandido('vazia')">
-              <td><span class="ic">❌❎</span> Vazias</td>
-              <td class="col-n"><strong>{{ vazias.length }}</strong></td>
-              <td class="col-pct text-muted">{{ ativas.length ? Math.round(vazias.length / ativas.length * 100) : 0 }}%</td>
-            </tr>
-            <tr v-if="expandido === 'vazia'" class="detalhe-row">
-              <td colspan="3">
-                <table class="detalhe-table">
-                  <thead><tr><th>Matriz</th><th>Resultado toque</th><th>Último parto</th></tr></thead>
-                  <tbody>
-                    <tr v-for="m in vazias" :key="m.id">
-                      <td><strong>{{ m.numero_registro }}</strong></td>
-                      <td class="text-muted">{{ toqueMap[m.id]?.resultado ?? 'Sem registro' }}</td>
-                      <td>{{ formatDate(m.ultima_cria_data) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-
-            <!-- Total -->
-            <tr class="resumo-total">
-              <td>Total de matrizes ativas</td>
-              <td class="col-n"><strong>{{ ativas.length }}</strong></td>
-              <td class="col-pct text-muted">100%</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      </div><!-- .dois-col -->
     </template>
 
     <!-- Modal -->
@@ -361,6 +505,162 @@ async function excluir() {
 </template>
 
 <style scoped>
+/* Layout duas colunas */
+.dois-col {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
+  align-items: start;
+}
+.col-dados { min-width: 0; }
+.col-ia    { position: sticky; top: 20px; }
+
+@media (max-width: 900px) {
+  .dois-col { grid-template-columns: 1fr; }
+  .col-ia   { position: static; }
+}
+
+/* ── Painel IA ─────────────────────────────────────────────── */
+.ia-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  height: calc(100vh - 140px);
+  min-height: 420px;
+}
+
+.ia-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #f8fdf8;
+}
+.ia-icon    { font-size: 1.6rem; line-height: 1; }
+.ia-titulo  { font-size: 0.95rem; font-weight: 700; color: #2c3e50; }
+.ia-subtitulo { font-size: 0.75rem; color: #888; margin-top: 2px; }
+
+.ia-chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ia-placeholder {
+  color: #aaa;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.ia-placeholder p { margin: 0 0 6px; }
+.ia-placeholder ul { margin: 0; padding-left: 18px; }
+.ia-placeholder li { margin-bottom: 4px; }
+
+.ia-msg { display: flex; }
+.ia-msg-user { justify-content: flex-end; }
+.ia-msg-bot  { justify-content: flex-start; }
+
+.ia-msg-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.ia-msg-user .ia-msg-bubble {
+  background: #2c5f2e;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.ia-msg-bot .ia-msg-bubble {
+  background: #f0f0f0;
+  color: #2c3e50;
+  border-bottom-left-radius: 4px;
+}
+
+/* Animação "digitando" */
+.ia-digitando {
+  display: flex;
+  gap: 5px;
+  padding: 12px 16px;
+  align-items: center;
+}
+.ia-digitando span {
+  width: 7px; height: 7px;
+  background: #888;
+  border-radius: 50%;
+  animation: dot-bounce 1.2s infinite;
+}
+.ia-digitando span:nth-child(2) { animation-delay: 0.2s; }
+.ia-digitando span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%           { transform: translateY(-6px); }
+}
+
+/* Ações sugeridas */
+.ia-acoes {
+  border-top: 1px solid #e0f0e0;
+  padding: 12px 20px;
+  background: #f0faf0;
+}
+.ia-acoes-titulo { font-size: 0.78rem; font-weight: 700; color: #2c5f2e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ia-acao-item { font-size: 0.85rem; color: #444; padding: 4px 0; border-bottom: 1px dashed #d4edda; }
+.ia-acao-item:last-of-type { border-bottom: none; }
+.ia-acoes-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+.btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+
+/* Resultados execução */
+.ia-exec-results { padding: 8px 20px; border-top: 1px solid #f0f0f0; }
+.ia-exec-item { font-size: 0.82rem; padding: 3px 0; }
+.ia-exec-ok  { color: #2c5f2e; }
+.ia-exec-err { color: #c62828; }
+
+/* Input */
+.ia-input-area {
+  border-top: 1px solid #f0f0f0;
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  background: #fafafa;
+}
+.ia-textarea {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+.ia-textarea:focus { border-color: #2c5f2e; }
+.ia-textarea:disabled { background: #f5f5f5; color: #aaa; }
+.ia-send-btn {
+  padding: 10px 18px;
+  background: #2c5f2e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.ia-send-btn:hover:not(:disabled) { background: #1e4220; }
+.ia-send-btn:disabled { background: #a5c8a6; cursor: default; }
+
 /* Seletor */
 .exame-selector { margin-bottom: 20px; }
 .exame-selector-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

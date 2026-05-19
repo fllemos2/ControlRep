@@ -170,4 +170,27 @@ export const dashboard = {
   stats: () => api.get<DashboardStats>('/dashboard/'),
 }
 
+export interface ChatAction {
+  type: string
+  label: string
+  payload: Record<string, unknown>
+}
+
+export interface ChatResponse {
+  message: string
+  actions: ChatAction[]
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export const chat = {
+  send: (message: string, history: ChatMessage[] = []) =>
+    api.post<ChatResponse>('/chat/', { message, history }),
+  execute: (actions: ChatAction[]) =>
+    api.post<{ results: string[] }>('/chat/execute', { actions }),
+}
+
 export default api
