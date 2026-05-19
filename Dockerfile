@@ -30,7 +30,6 @@ COPY --from=frontend /build/dist ./frontend/dist
 
 WORKDIR /app/backend
 
-EXPOSE 10000
+EXPOSE 8000
 
-# Usa $PORT injetado pelo Render (padrão 10000); fallback 8000 em outros ambientes
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
