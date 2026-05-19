@@ -163,7 +163,7 @@ export const parcerias = {
 
 export interface DashboardStats {
   matrizes: { ativas: number; cheias: number; vazias: number; paridas: number }
-  crias: { no_pasto: number; idade_media_meses: number; machos: number; femeas: number }
+  crias: { no_pasto: number; idade_media_meses: number; machos: number; femeas: number } // campo renomeado em backend para anos, mas mantemos compatibilidade
 }
 
 export const dashboard = {

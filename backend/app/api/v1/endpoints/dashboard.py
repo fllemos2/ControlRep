@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime
 
 from app.db.session import get_db
 from app.models.matriz import Matriz
@@ -37,10 +37,11 @@ def dashboard_stats(db: Session = Depends(get_db)):
             res = toque_map.get(mid, "")
             if "cheia" in res or "prenha" in res or "gestante" in res:
                 cheias += 1
-            elif "vazia" in res:
+            else:
+                # Sem registro ou resultado "Vazia" = vazia
                 vazias += 1
 
-        # Paridas: cria nascida após a data do último exame
+        # Desconta paridas do cheias: cria nascida após data do exame
         paridas = (
             db.query(Cria.id_matriz)
             .filter(
@@ -50,17 +51,29 @@ def dashboard_stats(db: Session = Depends(get_db)):
             .distinct()
             .count()
         )
+        cheias  = max(0, cheias - paridas)
 
     # ── Crias ─────────────────────────────────────────────────────────────────
     crias_pasto = db.query(Cria).filter(Cria.status == "No Pasto").all()
     hoje = date.today()
 
-    idades_meses = [
-        (hoje - c.data_nascimento).days / 30.44
-        for c in crias_pasto
-        if c.data_nascimento
-    ]
-    idade_media = round(sum(idades_meses) / len(idades_meses), 1) if idades_meses else 0
+    idades_anos = []
+    for c in crias_pasto:
+        if not c.data_nascimento:
+            continue
+        dn = c.data_nascimento
+        if isinstance(dn, datetime):
+            dn = dn.date()
+        elif isinstance(dn, str):
+            try:
+                dn = date.fromisoformat(dn[:10])
+            except ValueError:
+                continue
+        dias = (hoje - dn).days
+        if dias > 0:
+            idades_anos.append(dias / 365.25)
+
+    idade_media = round(sum(idades_anos) / len(idades_anos), 1) if idades_anos else 0
 
     machos = sum(1 for c in crias_pasto if c.sexo == "M")
     femeas = sum(1 for c in crias_pasto if c.sexo == "F")

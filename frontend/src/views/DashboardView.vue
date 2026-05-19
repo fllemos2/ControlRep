@@ -79,7 +79,7 @@ onMounted(async () => {
           </div>
           <div class="breakdown-item age-item">
             <span class="breakdown-label">Idade média</span>
-            <span class="breakdown-val">{{ stats.crias.idade_media_meses }} m</span>
+            <span class="breakdown-val">{{ stats.crias.idade_media_meses }} anos</span>
           </div>
         </div>
       </RouterLink>
