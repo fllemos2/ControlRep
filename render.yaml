@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: cattle-control
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cattle-control-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SYNC_SECRET
+        sync: false
+      - key: CLOUD_SYNC_URL
+        sync: false
+
+databases:
+  - name: cattle-control-db
+    plan: free
+    databaseName: cattle_control
+    user: cattle_control

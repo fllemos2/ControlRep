@@ -1,0 +1,28 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/*.db.bak
+backend/build/
+backend/dist/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Env
+backend/.env
+.env
+
+# PyInstaller
+backend/*.spec.bak
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

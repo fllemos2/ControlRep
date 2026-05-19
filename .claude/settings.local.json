@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Command python3, py, python -ErrorAction SilentlyContinue)",
+      "PowerShell($env:PATH -split ';' | Where-Object { $_ -match 'python|poetry|conda|venv' -or \\(Test-Path \"$_\\\\python.exe\"\\) })",
+      "PowerShell(\\(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing\\).Content | & py -)",
+      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\Python\\\\Scripts\\\\poetry.exe\", \"$env:LOCALAPPDATA\\\\pypoetry\\\\bin\\\\poetry.exe\" -ErrorAction SilentlyContinue | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"$env:APPDATA\\\\pypoetry\\\\bin\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:LOCALAPPDATA\\\\pypoetry\\\\bin\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\.local\\\\bin\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:APPDATA\\\\Python\\\\Python314\\\\Scripts\" -ErrorAction SilentlyContinue | Select-Object Name)",
+      "PowerShell(Get-ChildItem -Path \"$env:USERPROFILE\" -Filter \"poetry.exe\" -Recurse -ErrorAction SilentlyContinue -Depth 6 | Select-Object FullName)",
+      "PowerShell(Invoke-RestMethod -Uri \"http://127.0.0.1:8000/health\" -Method GET)",
+      "PowerShell(Invoke-RestMethod -Uri \"http://127.0.0.1:8000/api/v1/matrizes/\" -Method GET)",
+      "PowerShell(Invoke-RestMethod -Uri \"http://127.0.0.1:8000/api/v1/crias/\" -Method GET)",
+      "PowerShell($body = '{\"numero_registro\":\"001\",\"brinco\":\"B-001\",\"nome\":\"Mimosa\",\"raca\":\"Nelore\",\"status\":\"ativa\"}'; try { Invoke-RestMethod -Uri \"http://127.0.0.1:8000/api/v1/matrizes/\" -Method POST -Body $body -ContentType \"application/json\" } catch { $_.Exception.Response.GetResponseStream\\(\\) | ForEach-Object { $reader = New-Object System.IO.StreamReader\\($_\\); $reader.ReadToEnd\\(\\) } })",
+      "PowerShell($body = '{\"numero_registro\":\"001\",\"brinco\":\"B-001\",\"nome\":\"Mimosa\",\"raca\":\"Nelore\",\"status\":\"ativa\"}'; $resp = Invoke-WebRequest -Uri \"http://127.0.0.1:8000/api/v1/matrizes/\" -Method POST -Body $body -ContentType \"application/json\" -ErrorAction SilentlyContinue; $resp.StatusCode; $resp.Content)",
+      "PowerShell(cd \"c:\\\\01-Pessoais\\\\01-ControleReprodução\"; $env:PYTHONWARNINGS=\"ignore\"; backend\\\\.venv\\\\Scripts\\\\python scripts\\\\import_excel.py 2>&1 | Select-Object -Last 20)"
+    ]
+  }
+}
