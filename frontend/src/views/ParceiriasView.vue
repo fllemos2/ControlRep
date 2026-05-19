@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { parcerias as parceriasApi, type ParceriaResumo } from '@/api/client'
+import { parcerias as parceriasApi, type ParceriaResumo, type MatrizResumo } from '@/api/client'
 
 const loading = ref(true)
 const error = ref('')
 const lista = ref<ParceriaResumo[]>([])
-const selecionada = ref('')
+const selecionada = ref('') // '' = todos
 
 onMounted(async () => {
   try {
     const { data } = await parceriasApi.resumo()
     lista.value = data
-    if (data.length > 0) selecionada.value = data[0]?.nome ?? ''
   } catch {
     error.value = 'Erro ao carregar parcerias'
   } finally {
@@ -19,9 +18,42 @@ onMounted(async () => {
   }
 })
 
-const parceriaAtual = computed(() =>
-  lista.value.find(p => p.nome === selecionada.value) ?? null
+// Todas as matrizes de todas as parcerias (com nome do parceiro embutido)
+interface MatrizComParceria extends MatrizResumo {
+  parceiro: string
+  crias_vendidas: number
+}
+
+const todasMatrizes = computed<MatrizComParceria[]>(() =>
+  lista.value.flatMap(p =>
+    p.matrizes.map(m => ({
+      ...m,
+      parceiro: p.nome,
+      crias_vendidas: (m as any).crias_vendidas ?? 0,
+    }))
+  ).sort((a, b) => {
+    const na = parseInt(a.numero_registro), nb = parseInt(b.numero_registro)
+    if (!isNaN(na) && !isNaN(nb)) return na - nb
+    return a.numero_registro.localeCompare(b.numero_registro, 'pt-BR', { numeric: true })
+  })
 )
+
+const matrizesFiltradas = computed<MatrizComParceria[]>(() =>
+  selecionada.value
+    ? todasMatrizes.value.filter(m => m.parceiro === selecionada.value)
+    : todasMatrizes.value
+)
+
+const kpis = computed(() => {
+  const mats = matrizesFiltradas.value
+  return {
+    matrizes:   mats.length,
+    total_crias: mats.reduce((s, m) => s + m.total_crias, 0),
+    no_pasto:   mats.reduce((s, m) => s + m.crias_no_pasto, 0),
+    vendidas:   mats.reduce((s, m) => s + m.crias_vendidas, 0),
+    valor:      mats.reduce((s, m) => s + m.valor_vendido, 0),
+  }
+})
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -33,10 +65,18 @@ function fmt(v: number) {
   <div v-else-if="error" class="error-msg">{{ error }}</div>
   <div v-else class="parcerias-layout">
 
-    <!-- Coluna esquerda: lista de parceiros -->
+    <!-- Sidebar: filtro por parceiro -->
     <aside class="parceiros-sidebar">
       <div class="sidebar-title">Parceiros</div>
       <ul class="parceiros-lista">
+        <li
+          class="parceiro-item"
+          :class="{ ativo: selecionada === '' }"
+          @click="selecionada = ''"
+        >
+          <span class="parceiro-nome">Todos</span>
+          <span class="parceiro-badge">{{ todasMatrizes.length }}</span>
+        </li>
         <li
           v-for="p in lista"
           :key="p.nome"
@@ -50,29 +90,33 @@ function fmt(v: number) {
       </ul>
     </aside>
 
-    <!-- Coluna direita: detalhes do parceiro -->
-    <section class="parceiro-detalhe" v-if="parceriaAtual">
+    <!-- Conteúdo principal -->
+    <section class="parceiro-detalhe">
       <div class="page-header">
-        <h1>{{ parceriaAtual.nome }}</h1>
+        <h1>{{ selecionada || 'Todas as Matrizes' }}</h1>
       </div>
 
       <!-- KPIs -->
       <div class="kpis-row">
         <div class="kpi-card">
-          <span class="kpi-valor">{{ parceriaAtual.total_matrizes }}</span>
+          <span class="kpi-valor">{{ kpis.matrizes }}</span>
           <span class="kpi-label">Matrizes</span>
         </div>
         <div class="kpi-card">
-          <span class="kpi-valor">{{ parceriaAtual.total_crias }}</span>
-          <span class="kpi-label">Crias totais</span>
+          <span class="kpi-valor">{{ kpis.total_crias }}</span>
+          <span class="kpi-label">Crias Totais</span>
         </div>
         <div class="kpi-card kpi-destaque">
-          <span class="kpi-valor">{{ parceriaAtual.total_crias_no_pasto }}</span>
-          <span class="kpi-label">No pasto</span>
+          <span class="kpi-valor">{{ kpis.no_pasto }}</span>
+          <span class="kpi-label">No Pasto</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-valor">{{ kpis.vendidas }}</span>
+          <span class="kpi-label">Vendidas</span>
         </div>
         <div class="kpi-card kpi-verde">
-          <span class="kpi-valor">{{ fmt(parceriaAtual.total_valor_vendido) }}</span>
-          <span class="kpi-label">Total vendas</span>
+          <span class="kpi-valor">{{ fmt(kpis.valor) }}</span>
+          <span class="kpi-label">Total Vendas</span>
         </div>
       </div>
 
@@ -82,7 +126,8 @@ function fmt(v: number) {
           <thead>
             <tr>
               <th>Registro</th>
-              <th>Status Matriz</th>
+              <th v-if="!selecionada">Parceiro</th>
+              <th>Status</th>
               <th style="text-align:center">Total Crias</th>
               <th style="text-align:center">No Pasto</th>
               <th style="text-align:center">Vendidas</th>
@@ -90,8 +135,9 @@ function fmt(v: number) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="m in parceriaAtual.matrizes" :key="m.id">
+            <tr v-for="m in matrizesFiltradas" :key="m.id">
               <td><strong>{{ m.numero_registro }}</strong></td>
+              <td v-if="!selecionada" class="text-muted">{{ m.parceiro }}</td>
               <td>
                 <span class="badge" :class="m.status === 'ativa' ? 'badge-green' : 'badge-gray'">
                   {{ m.status }}
@@ -100,15 +146,15 @@ function fmt(v: number) {
               <td style="text-align:center"><strong>{{ m.total_crias }}</strong></td>
               <td style="text-align:center">
                 <span v-if="m.crias_no_pasto > 0" class="badge badge-green">{{ m.crias_no_pasto }}</span>
-                <span v-else class="sem">—</span>
+                <span v-else class="text-muted">—</span>
               </td>
               <td style="text-align:center">
-                <span v-if="(m as any).crias_vendidas > 0" class="badge badge-blue">{{ (m as any).crias_vendidas }}</span>
-                <span v-else class="sem">—</span>
+                <span v-if="m.crias_vendidas > 0" class="badge badge-blue">{{ m.crias_vendidas }}</span>
+                <span v-else class="text-muted">—</span>
               </td>
               <td style="text-align:right">
                 <span v-if="m.valor_vendido > 0">{{ fmt(m.valor_vendido) }}</span>
-                <span v-else class="sem">—</span>
+                <span v-else class="text-muted">—</span>
               </td>
             </tr>
           </tbody>
@@ -120,71 +166,35 @@ function fmt(v: number) {
 </template>
 
 <style scoped>
-.parcerias-layout {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
+.parcerias-layout { display: flex; gap: 24px; align-items: flex-start; }
 
 /* Sidebar */
 .parceiros-sidebar {
-  width: 180px;
-  flex-shrink: 0;
-  background: white;
-  border-radius: 10px;
+  width: 180px; flex-shrink: 0;
+  background: white; border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  overflow: hidden;
+  overflow: hidden; position: sticky; top: 20px;
 }
-
 .sidebar-title {
   padding: 14px 16px 10px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #888;
-  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: #888; border-bottom: 1px solid #f0f0f0;
 }
-
-.parceiros-lista {
-  list-style: none;
-  padding: 6px 0;
-}
-
+.parceiros-lista { list-style: none; padding: 6px 0; }
 .parceiro-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: background 0.12s;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; cursor: pointer; transition: background 0.12s;
   border-left: 3px solid transparent;
 }
-
 .parceiro-item:hover { background: #f5f5f0; }
-
-.parceiro-item.ativo {
-  background: #f0f7f0;
-  border-left-color: #2c5f2e;
-}
-
-.parceiro-nome {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #2c3e50;
-}
-
+.parceiro-item.ativo { background: #f0f7f0; border-left-color: #2c5f2e; }
+.parceiro-nome { font-size: 0.9rem; font-weight: 500; color: #2c3e50; }
 .parceiro-item.ativo .parceiro-nome { color: #2c5f2e; font-weight: 600; }
-
 .parceiro-badge {
-  background: #e9ecef;
-  color: #666;
-  border-radius: 10px;
-  font-size: 0.72rem;
-  padding: 1px 7px;
-  font-weight: 600;
+  background: #e9ecef; color: #666;
+  border-radius: 10px; font-size: 0.72rem; padding: 1px 7px; font-weight: 600;
 }
-
 .parceiro-item.ativo .parceiro-badge { background: #c8e6c9; color: #2c5f2e; }
 
 /* Detalhe */
@@ -192,38 +202,17 @@ function fmt(v: number) {
 
 /* KPIs */
 .kpis-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
 }
-
 .kpi-card {
-  background: white;
-  border-radius: 10px;
-  padding: 20px;
+  background: white; border-radius: 10px; padding: 18px 22px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 120px;
 }
-
 .kpi-destaque { border-top: 3px solid #1565c0; }
 .kpi-verde    { border-top: 3px solid #2c5f2e; }
+.kpi-valor { font-size: 1.5rem; font-weight: 700; color: #2c3e50; line-height: 1; }
+.kpi-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
 
-.kpi-valor {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2c3e50;
-  line-height: 1;
-}
-
-.kpi-label {
-  font-size: 0.78rem;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.sem { color: #ccc; }
+.text-muted { color: #aaa; }
 </style>
