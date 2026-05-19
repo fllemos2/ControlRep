@@ -32,6 +32,10 @@ class MatrizUpdate(BaseModel):
     status: Optional[str] = None
     parceria: Optional[str] = None
     observacoes: Optional[str] = None
+    total_crias: Optional[int] = None
+    primeira_cria_data: Optional[date] = None
+    ultima_cria_data: Optional[date] = None
+    media_dias_intervalo: Optional[int] = None
 
 
 class MatrizResponse(MatrizBase):

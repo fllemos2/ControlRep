@@ -52,13 +52,30 @@ for r in rows("compradores"):
 
 # ── 3. Matrizes ───────────────────────────────────────────────────────────────
 print("\n=== Matrizes ===")
+CALC_FIELDS = ["total_crias", "primeira_cria_data", "ultima_cria_data", "media_dias_intervalo"]
 for r in rows("matrizes"):
     local_id = r.pop("id")
     r.pop("created_at", None); r.pop("updated_at", None)
+    calc = {k: r.pop(k, None) for k in CALC_FIELDS}
     res = api("POST", "/matrizes/", json=clean(r))
     if res.ok:
-        mat_map[local_id] = res.json()["id"]
-        print(f"  {r['numero_registro']} -> id {mat_map[local_id]}")
+        prod_id = res.json()["id"]
+        mat_map[local_id] = prod_id
+        # PUT para campos calculados
+        patch = {k: v for k, v in calc.items() if v is not None}
+        if patch:
+            api("PUT", f"/matrizes/{prod_id}", json=patch)
+        print(f"  {r['numero_registro']} -> id {prod_id}")
+    else:
+        # Matriz já existe — busca o id pelo numero_registro para montar o mapa
+        existing = api("GET", "/matrizes/")
+        if existing.ok:
+            found = next((m for m in existing.json() if m["numero_registro"] == r["numero_registro"]), None)
+            if found:
+                mat_map[local_id] = found["id"]
+                patch = {k: v for k, v in calc.items() if v is not None}
+                if patch:
+                    api("PUT", f"/matrizes/{found['id']}", json=patch)
 
 # ── 4. Exames de Toque ────────────────────────────────────────────────────────
 print("\n=== Exames de Toque ===")
