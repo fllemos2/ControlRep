@@ -11,7 +11,7 @@ onMounted(async () => {
   try {
     const { data } = await parceriasApi.resumo()
     lista.value = data
-    if (data.length > 0) selecionada.value = data[0].nome
+    if (data.length > 0) selecionada.value = data[0]?.nome ?? ''
   } catch {
     error.value = 'Erro ao carregar parcerias'
   } finally {
