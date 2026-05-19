@@ -30,6 +30,9 @@ COPY --from=frontend /build/dist ./frontend/dist
 
 WORKDIR /app/backend
 
+COPY backend/start.sh ./start.sh
+RUN chmod +x ./start.sh
+
 EXPOSE 8000
 
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["./start.sh"]
