@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import matrizes, reprodutores, compradores, crias, exames_toque, toques_matrizes, chat, sync, parcerias, dashboard
+from app.api.v1.endpoints import matrizes, reprodutores, compradores, crias, exames_toque, toques_matrizes, chat, sync, parcerias, dashboard, relatorios
 
 api_router = APIRouter()
 
@@ -14,3 +14,4 @@ api_router.include_router(chat.router, prefix="/chat", tags=["Chat"])
 api_router.include_router(sync.router, prefix="/sync", tags=["Sync"])
 api_router.include_router(parcerias.router, prefix="/parcerias", tags=["Parcerias"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+api_router.include_router(relatorios.router, prefix="/relatorios", tags=["Relatorios"])

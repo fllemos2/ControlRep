@@ -10,6 +10,7 @@ const toques       = ref<ToqueMatriz[]>([])
 const allMatrizes  = ref<Matriz[]>([])
 const loading      = ref(true)
 const error        = ref('')
+const gerandoPdf   = ref(false)
 const expandido    = ref<'cheia' | 'parida' | 'vazia' | null>(null)
 
 // --- Modal criar/editar exame ---
@@ -246,13 +247,39 @@ async function scrollChat() {
 function onEnter(e: KeyboardEvent) {
   if (!e.shiftKey) { e.preventDefault(); enviarMensagem() }
 }
+
+async function emitirRelatorio() {
+  gerandoPdf.value = true
+  try {
+    const res = await fetch('/api/v1/relatorios/desempenho-reprodutivo')
+    if (!res.ok) throw new Error('Falha ao gerar PDF')
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'desempenho-reprodutivo.pdf'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch {
+    alert('Erro ao gerar relatório PDF.')
+  } finally {
+    gerandoPdf.value = false
+  }
+}
 </script>
 
 <template>
   <div>
     <div class="page-header">
       <h1>Exame de Toque</h1>
-      <button class="btn btn-primary" @click="abrirCriar">+ Novo Exame</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" @click="emitirRelatorio" :disabled="gerandoPdf">
+          {{ gerandoPdf ? 'Gerando...' : '📄 Relatório PDF' }}
+        </button>
+        <button class="btn btn-primary" @click="abrirCriar">+ Novo Exame</button>
+      </div>
     </div>
 
     <div v-if="error" class="error-msg">{{ error }}</div>
