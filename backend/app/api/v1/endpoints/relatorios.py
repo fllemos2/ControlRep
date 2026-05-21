@@ -38,7 +38,9 @@ def relatorio_desempenho(db: Session = Depends(get_db)):
     exame = db.query(ExameToque).order_by(ExameToque.data_realizacao.desc()).first()
     data_toque = _to_date(exame.data_realizacao) if exame else date.today()
 
-    matrizes = db.query(Matriz).filter(Matriz.status == 'ativa').all()
+    matrizes = db.query(Matriz).filter(
+        Matriz.status.notin_(['descartada', 'morta'])
+    ).all()
 
     def sort_key(m):
         try:
@@ -116,9 +118,9 @@ def relatorio_desempenho(db: Session = Depends(get_db)):
             elif toque.resultado:
                 resultado = toque.resultado[:8]
             else:
-                resultado = '-'
+                resultado = 'VZ'
         else:
-            resultado = '-'
+            resultado = 'VZ'
 
         rows.append([
             Paragraph(str(i), s_center),
