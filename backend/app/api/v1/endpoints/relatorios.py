@@ -37,6 +37,8 @@ def relatorio_desempenho(db: Session = Depends(get_db)):
     # --- Dados ---
     exame = db.query(ExameToque).order_by(ExameToque.data_realizacao.desc()).first()
     data_toque = _to_date(exame.data_realizacao) if exame else date.today()
+    # default "VZ" apenas se o toque foi realizado há mais de 7 dias
+    default_resultado = 'VZ' if data_toque and data_toque < (date.today() - timedelta(days=7)) else ''
 
     matrizes = db.query(Matriz).filter(
         Matriz.status.notin_(['descartada', 'morta'])
@@ -118,9 +120,9 @@ def relatorio_desempenho(db: Session = Depends(get_db)):
             elif toque.resultado:
                 resultado = toque.resultado[:8]
             else:
-                resultado = 'VZ'
+                resultado = default_resultado
         else:
-            resultado = 'VZ'
+            resultado = default_resultado
 
         rows.append([
             Paragraph(str(i), s_center),
