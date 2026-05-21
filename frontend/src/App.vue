@@ -36,7 +36,7 @@ async function doSync(dir: 'push' | 'pull') {
 <template>
   <div id="app">
     <nav class="navbar">
-      <div class="nav-brand">🐄 Cattle Control</div>
+      <div class="nav-brand">🐄 Fazenda Almas</div>
       <div class="nav-links">
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/matrizes">Matrizes</RouterLink>
